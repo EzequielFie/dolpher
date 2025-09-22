@@ -51,7 +51,7 @@ frog_img      = pygame.image.load("delfin-version-frogger-main\imagenes\DELFIN.p
 car_imgs      = pygame.image.load("delfin-version-frogger-main\imagenes\BARCO.png").convert_alpha()
 condenedor_img = pygame.image.load("delfin-version-frogger-main\imagenes\CONTENEDOR.png").convert_alpha()
 log_img       = pygame.image.load("delfin-version-frogger-main/imagenes/TRONCO.png").convert_alpha()
-turtle_img    = pygame.image.load("delfin-version-frogger-main/imagenes/TRONCO.png").convert_alpha()
+turtle_img    = pygame.image.load("delfin-version-frogger-main\imagenes\CONTENEDOR.png").convert_alpha()
 home_frog_img = pygame.image.load("delfin-version-frogger-main\imagenes\mar.png").convert_alpha()
 
 try:
@@ -147,7 +147,7 @@ class Spawner:
         rect = pygame.Rect(x, y + (TILE - h)//2, w, h)
 
         if self.entity_kind == 'VEHICLE':
-            img = car_imgs  # Usamos la imagen directamente sin random.choice
+            img = car_imgs
             return Vehicle(rect, vx, img)
         elif self.entity_kind == 'LOG':
             return Log(rect, vx, log_img)
@@ -373,6 +373,7 @@ class Game:
         if self.state == 'PLAYING':
             self.frog.draw(surf)
         self.draw_hud(surf)
+
         if self.state == 'LEVEL_CLEARED':
             shade = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
             shade.fill((0,0,0,160))
@@ -381,6 +382,7 @@ class Game:
             txt2 = FONT.render("Pulsa ENTER para continuar", True, WHITE)
             surf.blit(txt1, (WIDTH//2-txt1.get_width()//2, HEIGHT//2-40))
             surf.blit(txt2, (WIDTH//2-txt2.get_width()//2, HEIGHT//2+8))
+
         if self.state == 'GAMEOVER':
             shade = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
             shade.fill((0,0,0,180))
@@ -392,6 +394,15 @@ class Game:
             surf.blit(txt3, (WIDTH//2-txt3.get_width()//2, HEIGHT//2-16))
             surf.blit(txt2, (WIDTH//2-txt2.get_width()//2, HEIGHT//2+24))
 
+        if self.state == 'PAUSED':
+            shade = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+            shade.fill((0,0,0,180))
+            surf.blit(shade,(0,0))
+            txt1 = FONT2.render("PAUSA", True, WHITE)
+            txt2 = FONT.render("Pulsa P para continuar", True, WHITE)
+            surf.blit(txt1, (WIDTH//2 - txt1.get_width()//2, HEIGHT//2 - 40))
+            surf.blit(txt2, (WIDTH//2 - txt2.get_width()//2, HEIGHT//2 + 10))
+
 # =========================
 # Bucle principal
 # =========================
@@ -401,8 +412,16 @@ def main():
     while running:
         dt = clock.tick(60)/1000.0
         for event in pygame.event.get():
-            if event.type == pygame.QUIT: running = False
+            if event.type == pygame.QUIT: 
+                running = False
             elif event.type == pygame.KEYDOWN:
+                # --- tecla P para pausar ---
+                if event.key == pygame.K_p:
+                    if game.state == 'PLAYING':
+                        game.state = 'PAUSED'
+                    elif game.state == 'PAUSED':
+                        game.state = 'PLAYING'
+
                 if game.state == 'PLAYING':
                     game.handle_input(event.key)
                 elif game.state == 'LEVEL_CLEARED':
@@ -411,10 +430,13 @@ def main():
                 elif game.state == 'GAMEOVER':
                     if event.key in (pygame.K_r, pygame.K_R):
                         game = Game()
+
         if game.state == 'PLAYING':
             game.update(dt)
+
         game.draw(screen)
         pygame.display.flip()
+
     pygame.quit()
     sys.exit()
 
