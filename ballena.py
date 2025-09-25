@@ -1,4 +1,5 @@
 import sys, random, math, pygame
+import os
 
 # =========================
 # Configuración general
@@ -45,22 +46,36 @@ TIME_PER_ATTEMPT = 60.0
 HOME_COLS = [1, 4, 6, 8, 11]
 
 # =========================
-# Cargar imágenes
+# Cargar imágenes (con manejo de errores)
 # =========================
-frog_img      = pygame.image.load("delfin-version-frogger-main\imagenes\DELFIN.png").convert_alpha()
-car_imgs      = pygame.image.load("delfin-version-frogger-main\imagenes\BARCO.png").convert_alpha()
-condenedor_img = pygame.image.load("delfin-version-frogger-main\imagenes\CONTENEDOR.png").convert_alpha()
-log_img       = pygame.image.load("delfin-version-frogger-main/imagenes/TRONCO.png").convert_alpha()
-turtle_img    = pygame.image.load("delfin-version-frogger-main\imagenes\CONTENEDOR.png").convert_alpha()
-home_frog_img = pygame.image.load("delfin-version-frogger-main\imagenes\mar.png").convert_alpha()
+def load_image(path, alpha=True):
+    try:
+        if alpha:
+            return pygame.image.load(path).convert_alpha()
+        else:
+            return pygame.image.load(path).convert()
+    except:
+        print(f"Error cargando imagen: {path}")
+        # Crear una imagen de placeholder si hay error
+        surf = pygame.Surface((TILE, TILE), pygame.SRCALPHA)
+        if alpha:
+            surf.fill((255, 0, 255, 128))  # Magenta transparente para imágenes alpha
+        else:
+            surf.fill((255, 0, 255))  # Magenta para imágenes normales
+        return surf
 
-try:
-    background_img = pygame.image.load("delfin-version-frogger-main\imagenes\mar.png").convert()
-    background_img = pygame.transform.scale(background_img, (WIDTH, HEIGHT))
-except:
-    # Si no se puede cargar la imagen, creamos un fondo azul simple
-    background_img = pygame.Surface((WIDTH, HEIGHT))
-    background_img.fill((30, 90, 140))
+# Cargar todas las imágenes
+frog_img = load_image("delfin-version-frogger-main\imagenes\DELFIN.png")
+car_img = load_image("delfin-version-frogger-main\imagenes\BARCO.png")
+contenedor_img = load_image("delfin-version-frogger-main/imagenes/CONTENEDOR.png")
+log_img = load_image("delfin-version-frogger-main/imagenes/TRONCO.png")
+turtle_img = load_image("delfin-version-frogger-main/imagenes/CONTENEDOR.png")
+home_frog_img = load_image("delfin-version-frogger-main/imagenes/MAR.png")
+background_img = load_image("delfin-version-frogger-main/imagenes/MAR.png", alpha=False)
+
+
+# Redimensionar background si es necesario
+background_img = pygame.transform.scale(background_img, (WIDTH, HEIGHT))
 
 # Utilidades
 def grid_to_px(col, row):
@@ -147,7 +162,7 @@ class Spawner:
         rect = pygame.Rect(x, y + (TILE - h)//2, w, h)
 
         if self.entity_kind == 'VEHICLE':
-            img = car_imgs
+            img = car_img
             return Vehicle(rect, vx, img)
         elif self.entity_kind == 'LOG':
             return Log(rect, vx, log_img)
@@ -226,9 +241,9 @@ class Game:
         for r, kind in enumerate(LANE_LAYOUT):
             if kind == 'ROAD':
                 direction = -1 if (r % 2 == 0) else 1
-                speed_range = (120, 210)
+                speed_range = (50, 120)
                 size_tiles  = (2, 3)
-                gap_range   = (1.0, 2.2)
+                gap_range   = (5, 2.2)
                 self.spawners.append(Spawner(r, 'VEHICLE', direction, speed_range, size_tiles, gap_range, level_scale))
             elif kind == 'RIVER':
                 direction = 1 if (r % 2 == 0) else -1
@@ -246,6 +261,7 @@ class Game:
             self.lives -= 1
             if self.lives <= 0:
                 self.state = 'GAMEOVER'
+                return
         self.time_left = TIME_PER_ATTEMPT
         self.frog.reset()
 
@@ -344,19 +360,35 @@ class Game:
                 return
 
     def draw_grid_bg(self, surf):
-        surf.fill(BG_DARK)
+        # Dibujar la imagen de fondo
+        surf.blit(background_img, (0, 0))
+        
+        # Dibujar áreas semitransparentes para mejorar la visibilidad
         for row in range(ROWS):
             kind = lane_type(row)
             rect = pygame.Rect(0, row*TILE, WIDTH, TILE)
             if kind == 'SAFE':
-                pygame.draw.rect(surf, SAFE_GRASS, rect)
+                # Área segura con transparencia
+                s = pygame.Surface((WIDTH, TILE), pygame.SRCALPHA)
+                s.fill((236, 226, 198, 100))  # Transparencia
+                surf.blit(s, (0, row*TILE))
             elif kind == 'ROAD':
-                pygame.draw.rect(surf, ROAD_GRAY, rect)
-            elif kind in ('RIVER','HOMES'):
-                pygame.draw.rect(surf, WATER_BLUE, rect)
+                # Carretera con transparencia
+                s = pygame.Surface((WIDTH, TILE), pygame.SRCALPHA)
+                s.fill((30, 90, 140, 100))  # Transparencia
+                surf.blit(s, (0, row*TILE))
+            elif kind == 'RIVER':
+                # Río con transparencia
+                s = pygame.Surface((WIDTH, TILE), pygame.SRCALPHA)
+                s.fill((30, 90, 140, 100))  # Transparencia
+                surf.blit(s, (0, row*TILE))
+        
+        # Dibujar las ranuras de hogar
         for i, r in enumerate(self.home_rects):
-            color = HOME_GREEN if not self.home_occupied[i] else (90, 190, 110)
-            pygame.draw.rect(surf, color, r, border_radius=8)
+            color = (236, 226, 198, 150) if not self.home_occupied[i] else (90, 190, 110, 200)
+            s = pygame.Surface((r.w, r.h), pygame.SRCALPHA)
+            s.fill(color)
+            surf.blit(s, r.topleft)
             if self.home_occupied[i]:
                 img_scaled = pygame.transform.scale(home_frog_img, (r.w, r.h))
                 surf.blit(img_scaled, r.topleft)
@@ -364,6 +396,10 @@ class Game:
     def draw_hud(self, surf):
         hud_text = f"Puntos: {self.score}   Vidas: {self.lives}   Nivel: {self.level}   Tiempo: {int(self.time_left)}s"
         txt = FONT.render(hud_text, True, WHITE)
+        # Fondo semitransparente para el HUD
+        s = pygame.Surface((WIDTH, 30), pygame.SRCALPHA)
+        s.fill((0, 0, 0, 150))
+        surf.blit(s, (0, 0))
         surf.blit(txt, (8, 6))
 
     def draw(self, surf):
@@ -428,7 +464,7 @@ def main():
                     if event.key in (pygame.K_RETURN, pygame.K_SPACE):
                         game.next_level()
                 elif game.state == 'GAMEOVER':
-                    if event.key in (pygame.K_r, pygame.K_R):
+                    if event.key == pygame.K_r:
                         game = Game()
 
         if game.state == 'PLAYING':
